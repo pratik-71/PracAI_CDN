@@ -12,16 +12,27 @@
     ],
     "routes": [
         {
+            "src": "/gallery",
+            "dest": "/public/gallery.html"
+        },
+        {
             "src": "/gallery.html",
             "dest": "/public/gallery.html"
         },
         {
-            "src": "/(.+)",
-            "dest": "/public/$1"
+            "src": "/api/gallery/(.*)",
+            "dest": "/server.js"
+        },
+        {
+            "src": "/api/upload",
+            "dest": "/server.js"
+        },
+        {
+            "handle": "filesystem"
         },
         {
             "src": "/(.*)",
-            "dest": "server.js"
+            "dest": "/server.js"
         }
     ]
 } 

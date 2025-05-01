@@ -383,7 +383,7 @@
 
         async function fetchGallery() {
             try {
-                const response = await fetch('/gallery');
+                const response = await fetch('/api/gallery');
                 if (!response.ok) {
                     throw new Error('Failed to fetch gallery');
                 }
@@ -528,7 +528,7 @@
             const newSubfolder = document.getElementById('newSubfolder').value;
 
             try {
-                const response = await fetch('/gallery/move', {
+                const response = await fetch('/api/gallery/move', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -557,7 +557,7 @@
             if (!currentDeleteKey) return;
 
             try {
-                const response = await fetch(`/gallery/${currentDeleteKey}`, {
+                const response = await fetch(`/api/gallery/${currentDeleteKey}`, {
                     method: 'DELETE'
                 });
 

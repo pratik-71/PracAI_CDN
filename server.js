@@ -37,11 +37,16 @@ app.use(express.static('public'));
 // Add JSON body parser middleware
 app.use(express.json());
 
-// Use gallery routes
-app.use('/gallery', galleryRoutes);
+// Use gallery routes with /api prefix
+app.use('/api/gallery', galleryRoutes);
+
+// Redirect root to gallery
+app.get('/', (req, res) => {
+    res.redirect('/gallery');
+});
 
 // Serve upload form
-app.get('/', (req, res) => {
+app.get('/upload-form', (req, res) => {
   res.send(`
     <html>
       <head>
@@ -344,7 +349,7 @@ app.get('/', (req, res) => {
 
             try {
               const formData = new FormData(event.target);
-              const response = await fetch('/upload', {
+              const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData
               });
@@ -386,40 +391,51 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Handle file upload
-app.post('/upload', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded.' });
+// Handle upload endpoint
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded.' });
+        }
+
+        const mainFolder = req.body.mainFolder;
+        const subfolder = req.body.subfolder;
+
+        if (!mainFolder || !subfolder) {
+            return res.status(400).json({ error: 'Invalid folder selection.' });
+        }
+
+        const folderPath = `${mainFolder}/${subfolder}/`;
+        const fileBuffer = fs.readFileSync(req.file.path);
+
+        const fileUrl = await s3Service.uploadFile(req.file.filename, fileBuffer, folderPath);
+        
+        // Clean up: delete the local file
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            success: true,
+            message: 'File uploaded successfully',
+            folder: folderPath,
+            fileUrl: fileUrl
+        });
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        res.status(500).json({ error: 'Error uploading file to S3' });
     }
+});
 
-    const mainFolder = req.body.mainFolder;
-    const subfolder = req.body.subfolder;
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something broke!' });
+});
 
-    if (!mainFolder || !subfolder) {
-      return res.status(400).json({ error: 'Invalid folder selection.' });
-    }
-
-    const folderPath = `${mainFolder}/${subfolder}/`;
-    const fileBuffer = fs.readFileSync(req.file.path);
-
-    const fileUrl = await s3Service.uploadFile(req.file.filename, fileBuffer, folderPath);
-    
-    // Clean up: delete the local file
-    fs.unlinkSync(req.file.path);
-
-    res.json({
-      success: true,
-      message: 'File uploaded successfully',
-      folder: folderPath,
-      fileUrl: fileUrl
-    });
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    res.status(500).json({ error: 'Error uploading file to S3' });
-  }
+// Handle 404
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not Found' });
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+    console.log(`Server is running on port ${port}`);
 }); 
