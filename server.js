@@ -1,0 +1,425 @@
+require('dotenv').config();
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const s3Service = require('./services/s3Service');
+const galleryRoutes = require('./routes/galleryRoutes');
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Debug logging
+console.log('Environment variables:');
+console.log('AWS_BUCKET_NAME:', process.env.AWS_BUCKET_NAME);
+console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? '****' : 'not set');
+console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? '****' : 'not set');
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Serve static files from public directory
+app.use(express.static('public'));
+
+// Add JSON body parser middleware
+app.use(express.json());
+
+// Use gallery routes
+app.use('/gallery', galleryRoutes);
+
+// Serve upload form
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>File Upload to S3</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+          }
+          .upload-form {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            background: white;
+          }
+          .submit-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 16px;
+          }
+          .submit-btn:hover {
+            background-color: #45a049;
+          }
+          .submit-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+          }
+          .folder-select {
+            margin: 10px 0;
+            padding: 8px;
+            width: 200px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+          }
+          .preview {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: none;
+          }
+          #fileInput {
+            margin: 10px 0;
+          }
+          .select-group {
+            margin-bottom: 15px;
+          }
+          label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+          }
+          .subfolder-select {
+            display: none;
+          }
+          .subfolder-select.active {
+            display: block;
+          }
+          .nav-links {
+            margin-bottom: 20px;
+          }
+          .nav-links a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 10px;
+          }
+          .nav-links a:hover {
+            background-color: #0056b3;
+          }
+          .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+          }
+          .success-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            animation: slideIn 0.5s ease-out;
+          }
+          @keyframes slideIn {
+            from {
+              transform: translateY(-100px);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          .success-icon {
+            width: 60px;
+            height: 60px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+          }
+          .success-icon svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+          }
+          .success-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 10px;
+          }
+          .success-message {
+            color: #666;
+            margin-bottom: 20px;
+          }
+          .success-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+          }
+          .success-btn {
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            border: none;
+          }
+          .view-btn {
+            background: #007bff;
+            color: white;
+          }
+          .upload-another-btn {
+            background: #4CAF50;
+            color: white;
+          }
+          .loading-spinner {
+            display: none;
+            margin-left: 10px;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .error-message {
+            display: none;
+            color: #ff4444;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="nav-links">
+          <a href="/">Upload</a>
+          <a href="/gallery.html">View Gallery</a>
+        </div>
+        <h1>Upload File to S3</h1>
+        <div class="upload-form">
+          <form id="uploadForm" onsubmit="handleSubmit(event)">
+            <div class="select-group">
+              <label for="mainFolder">Select Main Folder:</label>
+              <select name="mainFolder" id="mainFolder" class="folder-select" required>
+                <option value="">Select a folder</option>
+                <option value="webpage">Webpage</option>
+                <option value="game">Game</option>
+              </select>
+            </div>
+
+            <!-- Webpage subfolders -->
+            <div id="webpage-subfolders" class="select-group subfolder-select">
+              <label for="webpage-subfolder">Select Webpage Subfolder:</label>
+              <select name="subfolder" class="folder-select" id="webpage-subfolder">
+                <option value="about">About</option>
+                <option value="home">Home</option>
+                <option value="auth">Auth</option>
+                <option value="misc">Misc</option>
+              </select>
+            </div>
+
+            <!-- Game subfolders -->
+            <div id="game-subfolders" class="select-group subfolder-select">
+              <label for="game-subfolder">Select Game Subfolder:</label>
+              <select name="subfolder" class="folder-select" id="game-subfolder">
+                <option value="week1">Week 1</option>
+                <option value="week2">Week 2</option>
+                <option value="week3">Week 3</option>
+                <option value="week4">Week 4</option>
+              </select>
+            </div>
+
+            <div class="select-group">
+              <label for="fileInput">Select File:</label>
+              <input type="file" id="fileInput" name="file" required>
+            </div>
+
+            <div id="preview" class="preview">
+              <img id="imagePreview" style="max-width: 200px; display: none;">
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+              Upload to S3
+              <span class="loading-spinner">↻</span>
+            </button>
+            <div class="error-message" id="errorMessage"></div>
+          </form>
+        </div>
+
+        <!-- Success Overlay -->
+        <div class="success-overlay" id="successOverlay">
+          <div class="success-modal">
+            <div class="success-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+              </svg>
+            </div>
+            <h2 class="success-title">Upload Successful!</h2>
+            <p class="success-message">Your file has been successfully uploaded to S3.</p>
+            <div class="success-buttons">
+              <button class="success-btn view-btn" onclick="window.location.href='/gallery.html'">View in Gallery</button>
+              <button class="success-btn upload-another-btn" onclick="resetForm()">Upload Another</button>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          // Handle folder selection
+          document.getElementById('mainFolder').addEventListener('change', function(e) {
+            const webpageSubfolders = document.getElementById('webpage-subfolders');
+            const gameSubfolders = document.getElementById('game-subfolders');
+            
+            // Hide all subfolder selects
+            webpageSubfolders.classList.remove('active');
+            gameSubfolders.classList.remove('active');
+            
+            // Show relevant subfolder select
+            if (this.value === 'webpage') {
+              webpageSubfolders.classList.add('active');
+              document.getElementById('webpage-subfolder').setAttribute('required', 'required');
+              document.getElementById('game-subfolder').removeAttribute('required');
+            } else if (this.value === 'game') {
+              gameSubfolders.classList.add('active');
+              document.getElementById('game-subfolder').setAttribute('required', 'required');
+              document.getElementById('webpage-subfolder').removeAttribute('required');
+            }
+          });
+
+          // Add image preview functionality
+          document.getElementById('fileInput').addEventListener('change', function(e) {
+            const preview = document.getElementById('imagePreview');
+            const previewContainer = document.getElementById('preview');
+            const file = e.target.files[0];
+            
+            if (file && file.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                previewContainer.style.display = 'block';
+              }
+              reader.readAsDataURL(file);
+            } else {
+              preview.style.display = 'none';
+              previewContainer.style.display = 'none';
+            }
+          });
+
+          async function handleSubmit(event) {
+            event.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const spinner = document.querySelector('.loading-spinner');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            submitBtn.disabled = true;
+            spinner.style.display = 'inline-block';
+            errorMessage.style.display = 'none';
+
+            try {
+              const formData = new FormData(event.target);
+              const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+              });
+
+              if (!response.ok) {
+                throw new Error('Upload failed. Please try again.');
+              }
+
+              const result = await response.json();
+              showSuccessOverlay();
+            } catch (error) {
+              errorMessage.textContent = error.message;
+              errorMessage.style.display = 'block';
+            } finally {
+              submitBtn.disabled = false;
+              spinner.style.display = 'none';
+            }
+          }
+
+          function showSuccessOverlay() {
+            const overlay = document.getElementById('successOverlay');
+            overlay.style.display = 'flex';
+          }
+
+          function resetForm() {
+            document.getElementById('uploadForm').reset();
+            document.getElementById('successOverlay').style.display = 'none';
+            document.getElementById('preview').style.display = 'none';
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            
+            // Reset subfolder selections
+            document.getElementById('webpage-subfolders').classList.remove('active');
+            document.getElementById('game-subfolders').classList.remove('active');
+          }
+        </script>
+      </body>
+    </html>
+  `);
+});
+
+// Handle file upload
+app.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    const mainFolder = req.body.mainFolder;
+    const subfolder = req.body.subfolder;
+
+    if (!mainFolder || !subfolder) {
+      return res.status(400).json({ error: 'Invalid folder selection.' });
+    }
+
+    const folderPath = `${mainFolder}/${subfolder}/`;
+    const fileBuffer = fs.readFileSync(req.file.path);
+
+    const fileUrl = await s3Service.uploadFile(req.file.filename, fileBuffer, folderPath);
+    
+    // Clean up: delete the local file
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      folder: folderPath,
+      fileUrl: fileUrl
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    res.status(500).json({ error: 'Error uploading file to S3' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+}); 
