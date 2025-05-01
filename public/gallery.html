@@ -286,6 +286,44 @@
         .toast.show {
             opacity: 1;
         }
+
+        .copy-link-container {
+            margin-top: 8px;
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .cdn-url {
+            flex: 1;
+            padding: 4px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: #f5f5f5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .copy-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
     </style>
 </head>
 <body>
@@ -468,6 +506,12 @@
                                 <div class="image-info">
                                     <div>Size: ${formatFileSize(file.size)}</div>
                                     <div>Modified: ${formatDate(file.lastModified)}</div>
+                                    <div class="copy-link-container">
+                                        <input type="text" class="cdn-url" value="${file.url}" readonly>
+                                        <button class="copy-btn" onclick="copyToClipboard(this)" data-url="${file.url}">
+                                            📋 Copy Link
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -641,6 +685,21 @@
                 showToast(error.message, 'error');
             }
         });
+
+        function copyToClipboard(button) {
+            const url = button.getAttribute('data-url');
+            navigator.clipboard.writeText(url).then(() => {
+                button.textContent = '✓ Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = '📋 Copy Link';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                showToast('Failed to copy link', 'error');
+            });
+        }
 
         // Load gallery when page loads
         fetchGallery();
