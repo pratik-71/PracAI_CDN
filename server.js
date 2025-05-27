@@ -40,6 +40,42 @@ app.use(express.static('public'));
 // API Routes
 app.use('/api/gallery', galleryRoutes);
 
+// API to get all folders and subfolders (for dynamic dropdowns)
+app.get('/api/folders', async (req, res) => {
+    try {
+        // Default folders and subfolders
+        const defaultFolders = {
+            webpage: ['about', 'home', 'auth', 'misc'],
+            game: ['week1', 'week2', 'week3', 'week4']
+        };
+        let s3Folders = {};
+        try {
+            const allFiles = await s3Service.listFiles();
+            // Build folder structure from S3
+            allFiles.forEach(file => {
+                const [main, sub] = file.key.split('/');
+                if (!main || !sub) return;
+                if (!s3Folders[main]) s3Folders[main] = new Set();
+                s3Folders[main].add(sub);
+            });
+        } catch (e) {
+            // If S3 fails, just use defaults
+            s3Folders = {};
+        }
+        // Merge S3 folders with defaults
+        const merged = { ...defaultFolders };
+        for (const main in s3Folders) {
+            if (!merged[main]) merged[main] = [];
+            s3Folders[main].forEach(sub => {
+                if (!merged[main].includes(sub)) merged[main].push(sub);
+            });
+        }
+        res.json(merged);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch folders' });
+    }
+});
+
 // Route handlers
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));

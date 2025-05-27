@@ -99,6 +99,17 @@
             overflow: hidden;
         }
 
+        .image-card video,
+        .image-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            transition: all 0.3s ease;
+            display: block;
+            pointer-events: none; /* Prevent video/image from blocking buttons */
+        }
+
         .image-card:hover {
             transform: translateY(-4px);
             box-shadow: var(--shadow-lg);
@@ -122,6 +133,8 @@
             padding: 0.5rem;
             border-radius: var(--radius-sm);
             backdrop-filter: blur(4px);
+            z-index: 2;
+            pointer-events: auto;
         }
 
         .action-btn {
@@ -153,14 +166,6 @@
 
         .action-btn.delete {
             color: var(--danger-color);
-        }
-
-        .image-card img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: var(--radius-sm);
-            transition: all 0.3s ease;
         }
 
         .image-info {
@@ -667,28 +672,26 @@
                     `;
 
                     files.forEach(file => {
+                        // Determine file type by extension
+                        const ext = file.key.split('.').pop().toLowerCase();
+                        const isVideo = ['mp4','webm','ogg','mov','avi','mkv'].includes(ext);
                         html += `
                             <div class="image-card">
-                                <div class="image-actions">
-                                    <button class="action-btn move" onclick="showMoveModal('${file.key}', '${file.key.split('/').pop()}')">
-                                        📦 Move
-                                    </button>
-                                    <button class="action-btn replace" onclick="showReplaceModal('${file.key}', '${file.key.split('/').pop()}')">
-                                        🔄 Replace
-                                    </button>
-                                    <button class="action-btn delete" onclick="showDeleteModal('${file.key}')">
-                                        🗑️ Delete
-                                    </button>
+                                <div class="image-actions" style="pointer-events:auto;z-index:2;">
+                                    <button class="action-btn move" onclick="showMoveModal('${file.key}', '${file.key.split('/').pop()}')" style="pointer-events:auto;">📦 Move</button>
+                                    <button class="action-btn replace" onclick="showReplaceModal('${file.key}', '${file.key.split('/').pop()}')" style="pointer-events:auto;">🔄 Replace</button>
+                                    <button class="action-btn delete" onclick="showDeleteModal('${file.key}')" style="pointer-events:auto;">🗑️ Delete</button>
                                 </div>
-                                <img src="${file.url}" alt="${file.key}" loading="lazy">
+                                ${isVideo
+                                    ? `<video src="${file.url}" controls style="width:100%;height:200px;object-fit:cover;border-radius:6px;pointer-events:none;" preload="metadata"></video>`
+                                    : `<img src="${file.url}" alt="${file.key}" loading="lazy" style="pointer-events:none;">`
+                                }
                                 <div class="image-info">
                                     <div>📁 Size: ${formatFileSize(file.size)}</div>
                                     <div>🕒 Modified: ${formatDate(file.lastModified)}</div>
                                     <div class="copy-link-container">
                                         <input type="text" class="cdn-url" value="${file.url}" readonly>
-                                        <button class="copy-btn" onclick="copyToClipboard(this)" data-url="${file.url}">
-                                            📋 Copy
-                                        </button>
+                                        <button class="copy-btn" onclick="copyToClipboard(this)" data-url="${file.url}">📋 Copy</button>
                                     </div>
                                 </div>
                             </div>

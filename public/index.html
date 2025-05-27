@@ -421,6 +421,50 @@
         .input-with-button .file-extension {
             border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
         }
+
+        .progress-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            pointer-events: all;
+        }
+        .progress-modal.active {
+            display: flex;
+        }
+        .progress-modal-content {
+            background: var(--card-background);
+            padding: 2rem 2.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+            min-width: 300px;
+        }
+        .progress-spinner {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid var(--primary-color);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1rem auto;
+            animation: spin 1s linear infinite;
+        }
+        .progress-message {
+            font-size: 1.2rem;
+            margin-bottom: 0;
+            color: var(--text-primary);
+        }
+        body.progress-blocked {
+            overflow: hidden;
+            pointer-events: none;
+            user-select: none;
+        }
+        .progress-modal.active {
+            pointer-events: all;
+        }
     </style>
 </head>
 <body>
@@ -524,8 +568,16 @@
         </div>
     </div>
 
+    <div class="progress-modal" id="progressModal">
+        <div class="progress-modal-content">
+            <div class="progress-spinner"></div>
+            <div class="progress-message" id="progressMessage">Uploading...</div>
+        </div>
+    </div>
+
     <script>
-        let subfolders = {
+        // Default folders and subfolders
+        const defaultFolders = {
             webpage: [
                 { value: 'about', label: 'About' },
                 { value: 'home', label: 'Home' },
@@ -539,47 +591,97 @@
                 { value: 'week4', label: 'Week 4' }
             ]
         };
+        let subfolders = { ...defaultFolders };
+
+        // Fetch folders from backend and merge with defaults
+        async function fetchFolders() {
+            try {
+                const res = await fetch('/api/folders');
+                if (!res.ok) throw new Error('Failed to fetch folders');
+                const data = await res.json();
+                // Merge with defaultFolders for label formatting
+                for (const main in data) {
+                    if (!subfolders[main]) subfolders[main] = [];
+                    data[main].forEach(sub => {
+                        if (!subfolders[main].some(f => f.value === sub)) {
+                            subfolders[main].push({ value: sub, label: sub.charAt(0).toUpperCase() + sub.slice(1) });
+                        }
+                    });
+                }
+                updateMainFolderDropdown();
+            } catch (e) {
+                updateMainFolderDropdown(); // fallback to defaults
+            }
+        }
+
+        // Update main folder dropdown
+        function updateMainFolderDropdown() {
+            const mainFolderSelect = document.getElementById('mainFolder');
+            // Save current value
+            const current = mainFolderSelect.value;
+            // Remove all except the first option and 'Add New'
+            mainFolderSelect.innerHTML = '<option value="">Choose a folder...</option>';
+            for (const main in subfolders) {
+                const label = main.charAt(0).toUpperCase() + main.slice(1);
+                const option = document.createElement('option');
+                option.value = main;
+                option.textContent = (main === 'webpage' ? '📄 ' : main === 'game' ? '🎮 ' : '📁 ') + label;
+                mainFolderSelect.appendChild(option);
+            }
+            // Add New option
+            const newOpt = document.createElement('option');
+            newOpt.value = 'new';
+            newOpt.textContent = '➕ Add New Folder...';
+            mainFolderSelect.appendChild(newOpt);
+            // Restore value if possible
+            if ([...mainFolderSelect.options].some(o => o.value === current)) {
+                mainFolderSelect.value = current;
+            }
+        }
+
+        // Update subfolder dropdown
+        function updateSubfolderDropdown(main) {
+            const subfolderSelect = document.getElementById('subfolder');
+            subfolderSelect.innerHTML = '<option value="">Choose a subfolder...</option>';
+            if (subfolders[main]) {
+                subfolders[main].forEach(option => {
+                    const opt = document.createElement('option');
+                    opt.value = option.value;
+                    opt.textContent = option.label;
+                    subfolderSelect.appendChild(opt);
+                });
+            }
+            // Add New option
+            const newOpt = document.createElement('option');
+            newOpt.value = 'new';
+            newOpt.textContent = '➕ Add New Subfolder...';
+            subfolderSelect.appendChild(newOpt);
+        }
+
+        // On page load, fetch folders
+        window.addEventListener('DOMContentLoaded', fetchFolders);
 
         document.getElementById('mainFolder').addEventListener('change', function(e) {
             const newMainFolderGroup = document.getElementById('newMainFolderGroup');
             const subfolderGroup = document.getElementById('subfolderGroup');
-            const subfolderSelect = document.getElementById('subfolder');
             const subfolderLabel = document.getElementById('subfolderLabel');
             const newSubfolderGroup = document.getElementById('newSubfolderGroup');
-            
             newMainFolderGroup.classList.add('hidden');
             subfolderGroup.classList.add('hidden');
             newSubfolderGroup.classList.add('hidden');
-            
             if (this.value === 'new') {
                 newMainFolderGroup.classList.remove('hidden');
                 return;
             }
-            
             if (this.value) {
-                subfolderSelect.innerHTML = '<option value="">Choose a subfolder...</option>';
-                
-                const options = subfolders[this.value] || [];
-                options.forEach(option => {
-                    const optionElement = document.createElement('option');
-                    optionElement.value = option.value;
-                    optionElement.textContent = option.label;
-                    subfolderSelect.appendChild(optionElement);
-                });
-
-                const newOption = document.createElement('option');
-                newOption.value = 'new';
-                newOption.textContent = '➕ Add New Subfolder...';
-                subfolderSelect.appendChild(newOption);
-
-                subfolderLabel.textContent = `Select ${this.value === 'webpage' ? 'Webpage' : 'Game'} Subfolder`;
+                updateSubfolderDropdown(this.value);
+                subfolderLabel.textContent = `Select ${this.value === 'webpage' ? 'Webpage' : this.value === 'game' ? 'Game' : this.value.charAt(0).toUpperCase() + this.value.slice(1)} Subfolder`;
                 subfolderGroup.classList.remove('hidden');
             }
         });
 
         document.getElementById('subfolder').addEventListener('change', function(e) {
             const newSubfolderGroup = document.getElementById('newSubfolderGroup');
-            
             if (this.value === 'new') {
                 newSubfolderGroup.classList.remove('hidden');
                 this.selectedIndex = 0;
@@ -592,32 +694,23 @@
             const newMainFolderInput = document.getElementById('newMainFolder');
             const mainFolderSelect = document.getElementById('mainFolder');
             const newMainFolderGroup = document.getElementById('newMainFolderGroup');
-            
             const folderName = newMainFolderInput.value.trim().toLowerCase();
-            
             if (!folderName) {
                 showError('Please enter a folder name');
                 return;
             }
-            
             if (subfolders[folderName]) {
                 showError('This folder already exists');
                 return;
             }
-            
             subfolders[folderName] = [];
-            
             const option = document.createElement('option');
             option.value = folderName;
             option.textContent = `📁 ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}`;
-            
             mainFolderSelect.insertBefore(option, mainFolderSelect.lastElementChild);
-            
             mainFolderSelect.value = folderName;
-            
             newMainFolderInput.value = '';
             newMainFolderGroup.classList.add('hidden');
-            
             mainFolderSelect.dispatchEvent(new Event('change'));
         }
 
@@ -626,32 +719,24 @@
             const mainFolder = document.getElementById('mainFolder').value;
             const subfolderSelect = document.getElementById('subfolder');
             const newSubfolderGroup = document.getElementById('newSubfolderGroup');
-            
             const folderName = newSubfolderInput.value.trim().toLowerCase();
-            
             if (!folderName) {
                 showError('Please enter a subfolder name');
                 return;
             }
-            
             if (subfolders[mainFolder].some(f => f.value === folderName)) {
                 showError('This subfolder already exists');
                 return;
             }
-            
             subfolders[mainFolder].push({
                 value: folderName,
                 label: folderName.charAt(0).toUpperCase() + folderName.slice(1)
             });
-            
             const option = document.createElement('option');
             option.value = folderName;
             option.textContent = folderName.charAt(0).toUpperCase() + folderName.slice(1);
-            
             subfolderSelect.insertBefore(option, subfolderSelect.lastElementChild);
-            
             subfolderSelect.value = folderName;
-            
             newSubfolderInput.value = '';
             newSubfolderGroup.classList.add('hidden');
         }
@@ -758,10 +843,17 @@
             const errorMessage = document.getElementById('errorMessage');
             const fileInput = document.getElementById('fileInput');
             const newFileName = document.getElementById('newFileName');
+            const progressModal = document.getElementById('progressModal');
+            const progressMessage = document.getElementById('progressMessage');
             
             submitBtn.disabled = true;
             spinner.style.display = 'inline-block';
             errorMessage.style.display = 'none';
+
+            // Show progress modal and block UI
+            progressModal.classList.add('active');
+            document.body.classList.add('progress-blocked');
+            progressMessage.textContent = 'Uploading...';
 
             try {
                 const formData = new FormData(event.target);
@@ -776,19 +868,46 @@
                     formData.set('file', newFile);
                 }
 
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
+                // Use XMLHttpRequest for progress
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/upload');
+
+                    xhr.onload = function () {
+                        let result = {};
+                        try {
+                            result = JSON.parse(xhr.responseText);
+                        } catch (err) {}
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            progressMessage.textContent = 'Upload complete!';
+                            setTimeout(() => {
+                                progressModal.classList.remove('active');
+                                document.body.classList.remove('progress-blocked');
+                                showSuccessOverlay();
+                                resolve();
+                            }, 500);
+                        } else {
+                            progressModal.classList.remove('active');
+                            document.body.classList.remove('progress-blocked');
+                            errorMessage.textContent = result.details || result.error || 'Upload failed. Please try again.';
+                            errorMessage.style.display = 'block';
+                            resolve();
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        progressModal.classList.remove('active');
+                        document.body.classList.remove('progress-blocked');
+                        errorMessage.textContent = 'Network error. Please try again.';
+                        errorMessage.style.display = 'block';
+                        resolve();
+                    };
+
+                    xhr.send(formData);
                 });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(result.details || result.error || 'Upload failed. Please try again.');
-                }
-
-                showSuccessOverlay();
             } catch (error) {
+                progressModal.classList.remove('active');
+                document.body.classList.remove('progress-blocked');
                 errorMessage.textContent = error.message;
                 errorMessage.style.display = 'block';
             } finally {
