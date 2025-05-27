@@ -16,20 +16,7 @@ console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? '****' : 'not 
 console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? '****' : 'not set');
 
 // Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ storage: storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Add JSON body parser middleware
 app.use(express.json());
@@ -109,14 +96,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         }
 
         const folderPath = `${mainFolder}/${subfolder}/`;
-        const fileBuffer = fs.readFileSync(req.file.path);
+        const fileName = req.file.originalname || Date.now().toString();
+        const fileBuffer = req.file.buffer;
 
         try {
-            const fileUrl = await s3Service.uploadFile(req.file.filename, fileBuffer, folderPath);
+            const fileUrl = await s3Service.uploadFile(fileName, fileBuffer, folderPath);
             
-            // Clean up: delete the local file
-            fs.unlinkSync(req.file.path);
-
             res.json({
                 success: true,
                 message: 'File uploaded successfully',
@@ -125,12 +110,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             });
         } catch (s3Error) {
             console.error('S3 Upload Error:', s3Error);
-            // Clean up the local file even if S3 upload fails
-            try {
-                fs.unlinkSync(req.file.path);
-            } catch (cleanupError) {
-                console.error('Error cleaning up local file:', cleanupError);
-            }
             
             // Send detailed error response
             res.status(500).json({ 
