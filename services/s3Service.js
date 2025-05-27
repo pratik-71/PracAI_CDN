@@ -3,8 +3,12 @@ require('dotenv').config();
 
 class S3Service {
     constructor() {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME) {
+            throw new Error('AWS credentials not configured properly');
+        }
+
         this.s3Client = new S3Client({
-            region: 'us-east-1',
+            region: process.env.AWS_REGION || 'us-east-1',
             credentials: {
                 accessKeyId: process.env.AWS_ACCESS_KEY_ID,
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
@@ -15,6 +19,10 @@ class S3Service {
 
     async uploadFile(fileName, fileBuffer, folderPath) {
         try {
+            if (!fileName || !fileBuffer || !folderPath) {
+                throw new Error('Missing required parameters for file upload');
+            }
+
             const uploadParams = {
                 Bucket: this.bucketName,
                 Key: `${folderPath}${fileName}`,
@@ -22,12 +30,27 @@ class S3Service {
                 ContentType: this.getContentType(fileName)
             };
 
+            console.log('Attempting to upload file to S3:', {
+                bucket: this.bucketName,
+                key: uploadParams.Key,
+                contentType: uploadParams.ContentType
+            });
+
             const command = new PutObjectCommand(uploadParams);
             await this.s3Client.send(command);
-            return `https://${this.bucketName}.s3.amazonaws.com/${folderPath}${fileName}`;
+            
+            const fileUrl = `https://${this.bucketName}.s3.amazonaws.com/${folderPath}${fileName}`;
+            console.log('File uploaded successfully:', fileUrl);
+            return fileUrl;
         } catch (error) {
-            console.error('Error uploading file:', error);
-            throw error;
+            console.error('S3 Upload Error Details:', {
+                error: error.message,
+                code: error.code,
+                requestId: error.$metadata?.requestId,
+                bucket: this.bucketName,
+                key: `${folderPath}${fileName}`
+            });
+            throw new Error(`Failed to upload file to S3: ${error.message}`);
         }
     }
 

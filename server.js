@@ -63,23 +63,51 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'Invalid folder selection.' });
         }
 
+        // Check if AWS credentials are configured
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME) {
+            console.error('AWS credentials not configured properly');
+            return res.status(500).json({ 
+                error: 'Server configuration error. Please check AWS credentials.',
+                details: 'AWS credentials are not properly configured on the server.'
+            });
+        }
+
         const folderPath = `${mainFolder}/${subfolder}/`;
         const fileBuffer = fs.readFileSync(req.file.path);
 
-        const fileUrl = await s3Service.uploadFile(req.file.filename, fileBuffer, folderPath);
-        
-        // Clean up: delete the local file
-        fs.unlinkSync(req.file.path);
+        try {
+            const fileUrl = await s3Service.uploadFile(req.file.filename, fileBuffer, folderPath);
+            
+            // Clean up: delete the local file
+            fs.unlinkSync(req.file.path);
 
-        res.json({
-            success: true,
-            message: 'File uploaded successfully',
-            folder: folderPath,
-            fileUrl: fileUrl
-        });
+            res.json({
+                success: true,
+                message: 'File uploaded successfully',
+                folder: folderPath,
+                fileUrl: fileUrl
+            });
+        } catch (s3Error) {
+            console.error('S3 Upload Error:', s3Error);
+            // Clean up the local file even if S3 upload fails
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (cleanupError) {
+                console.error('Error cleaning up local file:', cleanupError);
+            }
+            
+            // Send detailed error response
+            res.status(500).json({ 
+                error: 'Error uploading file to S3',
+                details: s3Error.message || 'Unknown S3 error'
+            });
+        }
     } catch (error) {
-        console.error('Error uploading file:', error);
-        res.status(500).json({ error: 'Error uploading file to S3' });
+        console.error('Server Error:', error);
+        res.status(500).json({ 
+            error: 'Server error occurred',
+            details: error.message || 'Unknown server error'
+        });
     }
 });
 
