@@ -16,10 +16,17 @@ console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? '****' : 'not 
 console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? '****' : 'not set');
 
 // Configure multer for file upload
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 500 * 1024 * 1024, // 500MB limit
+        fieldSize: 500 * 1024 * 1024 // 500MB limit
+    }
+});
 
-// Add JSON body parser middleware
-app.use(express.json());
+// Add JSON body parser middleware with increased limit
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
 // Serve static files from public directory
 app.use(express.static('public'));
@@ -80,10 +87,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         }
 
         const mainFolder = req.body.mainFolder;
-        const subfolder = req.body.subfolder;
 
-        if (!mainFolder || !subfolder) {
-            return res.status(400).json({ error: 'Invalid folder selection.' });
+        if (!mainFolder) {
+            return res.status(400).json({ error: 'Main folder is required.' });
         }
 
         // Check if AWS credentials are configured
@@ -95,7 +101,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             });
         }
 
-        const folderPath = `${mainFolder}/${subfolder}/`;
+        // Construct folder path - make subfolder optional
+        const subfolder = req.body.subfolder || '';
+        const folderPath = subfolder ? `${mainFolder}/${subfolder}/` : `${mainFolder}/`;
         const fileName = req.file.originalname || Date.now().toString();
         const fileBuffer = req.file.buffer;
 

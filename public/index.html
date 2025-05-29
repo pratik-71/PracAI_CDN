@@ -477,36 +477,30 @@
         <div class="upload-form">
             <form id="uploadForm" onsubmit="handleSubmit(event)">
                 <div class="select-group">
-                    <label for="mainFolder">Select Main Folder</label>
-                    <select name="mainFolder" id="mainFolder" class="folder-select" required>
-                        <option value="">Choose a folder...</option>
-                        <option value="webpage">📄 Webpage</option>
-                        <option value="game">🎮 Game</option>
-                        <option value="new">➕ Add New Folder...</option>
+                    <label for="mainFolder">Main Folder:</label>
+                    <select id="mainFolder" name="mainFolder" class="folder-select" required>
+                        <option value="">Select a folder</option>
+                        <option value="webpage">Webpage</option>
+                        <option value="game">Game</option>
+                        <option value="new">Add New</option>
                     </select>
                 </div>
 
-                <div class="select-group hidden" id="newMainFolderGroup">
-                    <label for="newMainFolder">Enter New Folder Name</label>
-                    <div class="input-with-button">
-                        <input type="text" id="newMainFolder" class="text-input" placeholder="Enter folder name...">
-                        <button type="button" class="add-btn" onclick="addMainFolder()">Add</button>
-                    </div>
-                </div>
-
-                <div class="select-group hidden" id="subfolderGroup">
-                    <label for="subfolder" id="subfolderLabel">Select Subfolder</label>
-                    <select name="subfolder" id="subfolder" class="folder-select" required>
-                        <!-- Will be populated dynamically -->
+                <div class="select-group" id="subfolderGroup">
+                    <label for="subfolder">Subfolder (Optional):</label>
+                    <select id="subfolder" name="subfolder" class="folder-select">
+                        <option value="">Select a subfolder</option>
                     </select>
                 </div>
 
-                <div class="select-group hidden" id="newSubfolderGroup">
-                    <label for="newSubfolder">Enter New Subfolder Name</label>
-                    <div class="input-with-button">
-                        <input type="text" id="newSubfolder" class="text-input" placeholder="Enter subfolder name...">
-                        <button type="button" class="add-btn" onclick="addSubfolder()">Add</button>
-                    </div>
+                <div class="select-group" id="newFolderGroup" style="display: none;">
+                    <label for="newFolder">New Folder Name:</label>
+                    <input type="text" id="newFolder" name="newFolder" class="folder-select" placeholder="Enter folder name">
+                </div>
+
+                <div class="select-group" id="newSubfolderGroup" style="display: none;">
+                    <label for="newSubfolder">New Subfolder Name (Optional):</label>
+                    <input type="text" id="newSubfolder" name="newSubfolder" class="folder-select" placeholder="Enter subfolder name">
                 </div>
 
                 <div class="file-input-container">
@@ -662,15 +656,15 @@
         window.addEventListener('DOMContentLoaded', fetchFolders);
 
         document.getElementById('mainFolder').addEventListener('change', function(e) {
-            const newMainFolderGroup = document.getElementById('newMainFolderGroup');
+            const newFolderGroup = document.getElementById('newFolderGroup');
             const subfolderGroup = document.getElementById('subfolderGroup');
             const subfolderLabel = document.getElementById('subfolderLabel');
             const newSubfolderGroup = document.getElementById('newSubfolderGroup');
-            newMainFolderGroup.classList.add('hidden');
+            newFolderGroup.classList.add('hidden');
             subfolderGroup.classList.add('hidden');
             newSubfolderGroup.classList.add('hidden');
             if (this.value === 'new') {
-                newMainFolderGroup.classList.remove('hidden');
+                newFolderGroup.classList.remove('hidden');
                 return;
             }
             if (this.value) {
@@ -691,10 +685,10 @@
         });
 
         function addMainFolder() {
-            const newMainFolderInput = document.getElementById('newMainFolder');
+            const newFolderInput = document.getElementById('newFolder');
             const mainFolderSelect = document.getElementById('mainFolder');
-            const newMainFolderGroup = document.getElementById('newMainFolderGroup');
-            const folderName = newMainFolderInput.value.trim().toLowerCase();
+            const newFolderGroup = document.getElementById('newFolderGroup');
+            const folderName = newFolderInput.value.trim().toLowerCase();
             if (!folderName) {
                 showError('Please enter a folder name');
                 return;
@@ -709,8 +703,8 @@
             option.textContent = `📁 ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}`;
             mainFolderSelect.insertBefore(option, mainFolderSelect.lastElementChild);
             mainFolderSelect.value = folderName;
-            newMainFolderInput.value = '';
-            newMainFolderGroup.classList.add('hidden');
+            newFolderInput.value = '';
+            newFolderGroup.classList.add('hidden');
             mainFolderSelect.dispatchEvent(new Event('change'));
         }
 
@@ -856,14 +850,48 @@
             progressMessage.textContent = 'Uploading...';
 
             try {
-                const formData = new FormData(event.target);
-                const file = fileInput.files[0];
+                const mainFolder = document.getElementById('mainFolder').value;
+                const subfolder = document.getElementById('subfolder').value;
+                const newFolder = document.getElementById('newFolder').value;
+                const newSubfolder = document.getElementById('newSubfolder').value;
                 
+                if (!mainFolder) {
+                    alert('Please select a main folder');
+                    return;
+                }
+                
+                if (mainFolder === 'new' && !newFolder) {
+                    alert('Please enter a new folder name');
+                    return;
+                }
+                
+                const formData = new FormData();
+                
+                if (fileInput.files.length === 0) {
+                    alert('Please select a file to upload');
+                    return;
+                }
+                
+                formData.append('file', fileInput.files[0]);
+                
+                // Use new folder name if "Add New" is selected
+                if (mainFolder === 'new') {
+                    formData.append('mainFolder', newFolder);
+                    if (newSubfolder) {
+                        formData.append('subfolder', newSubfolder);
+                    }
+                } else {
+                    formData.append('mainFolder', mainFolder);
+                    if (subfolder) {
+                        formData.append('subfolder', subfolder);
+                    }
+                }
+
                 // Handle file renaming
                 if (newFileName.value.trim()) {
-                    const extension = file.name.split('.').pop();
-                    const newFile = new File([file], `${newFileName.value.trim()}.${extension}`, {
-                        type: file.type
+                    const extension = fileInput.files[0].name.split('.').pop();
+                    const newFile = new File([fileInput.files[0]], `${newFileName.value.trim()}.${extension}`, {
+                        type: fileInput.files[0].type
                     });
                     formData.set('file', newFile);
                 }
