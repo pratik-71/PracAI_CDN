@@ -134,6 +134,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
+// Add this route to handle file replacement from the gallery
+app.post('/gallery/replace', upload.single('file'), async (req, res) => {
+    try {
+        const { fileKey, oldKey } = req.body; // fileKey is the new key, oldKey is the original
+        if (!fileKey || !req.file) {
+            return res.status(400).json({ error: 'Missing file or fileKey' });
+        }
+        // Upload the new file
+        const folderPath = fileKey.substring(0, fileKey.lastIndexOf('/') + 1);
+        const fileName = fileKey.split('/').pop();
+        await s3Service.uploadFile(fileName, req.file.buffer, folderPath);
+        // If the key changed, delete the old file
+        if (oldKey && oldKey !== fileKey) {
+            await s3Service.deleteFile(oldKey);
+        }
+        res.json({ success: true, message: 'File replaced successfully' });
+    } catch (err) {
+        console.error('Replace error:', err);
+        res.status(500).json({ error: 'Failed to replace file' });
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);

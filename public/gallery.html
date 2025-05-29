@@ -570,25 +570,55 @@
     </div>
 
     <div id="replaceModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Replace File</h2>
-                <button class="close-btn" onclick="closeModal('replaceModal')">&times;</button>
+        <div class="modal replace-modal-pro" style="max-width: 600px; width: 98%; position: relative; box-shadow: 0 8px 32px rgba(67,97,238,0.15); border-radius: 18px;">
+            <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                <h2 class="modal-title" style="font-size: 1.6rem; font-weight: 700; letter-spacing: 0.5px;">🔄 Replace File</h2>
+                <button class="close-btn" onclick="closeModal('replaceModal')" aria-label="Close">&times;</button>
             </div>
-            <form id="replaceForm" class="move-form">
+            <form id="replaceForm" class="move-form" style="margin-top: 1.2rem; gap: 1.2rem;">
+                <div style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;">
+                    <!-- Left Column -->
+                    <div style="flex: 1 1 260px; min-width: 220px;">
+                        <div class="form-group" style="margin-bottom: 0.5rem;">
+                            <label style="font-weight:600;">Current file name:</label>
+                            <span id="replaceCurrentName" style="font-family:monospace;color:var(--primary-color);"></span>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0.5rem;">
+                            <label for="newFile" style="font-weight:600;">Select New File</label>
+                            <label for="newFile" class="file-drop-label" style="display:block; border:2px dashed var(--primary-color); border-radius:10px; padding:1.2rem; text-align:center; cursor:pointer; background:rgba(67,97,238,0.03); margin-bottom:0.5rem;">
+                                <span id="replaceFileDropText">Click or drag file here</span>
+                                <input type="file" id="newFile" required class="file-input" style="display:none;">
+                            </label>
+                        </div>
+                        <div class="form-group" id="newFileNameGroup" style="margin-bottom: 0.5rem; display:none;">
+                            <label style="font-weight:600;">New uploaded file name:</label>
+                            <span id="replaceNewFileName" style="font-family:monospace;color:var(--primary-color);"></span>
+                        </div>
+                        <div class="form-group" id="renameGroup" style="margin-bottom: 0.5rem; display:none;">
+                            <label for="replaceRenameInput" style="font-weight:600;">Change file name (optional)</label>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <input type="text" id="replaceRenameInput" class="text-input" placeholder="Enter new file name" style="flex:1;">
+                                <span id="replaceRenameExt" style="font-family:monospace;color:var(--text-secondary);"></span>
+                            </div>
+                        </div>
+                        <div id="replacePreview" class="preview" style="display:none; margin-bottom: 1rem; text-align:center;">
+                            <img id="replaceImagePreview" style="max-width: 100%; max-height: 120px; display:none; border-radius: 8px;" alt="Preview">
+                            <video id="replaceVideoPreview" style="max-width: 100%; max-height: 120px; display:none; border-radius: 8px;" controls preload="metadata"></video>
+                        </div>
+                    </div>
+                    <!-- Right Column -->
+                    <div style="flex: 0 0 180px; min-width: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem;">
+                        <button type="submit" id="replaceSubmitBtn" class="modal-btn primary" style="width: 100%; font-size: 1.1rem; padding: 0.9rem 0;">Replace File</button>
+                        <div id="replaceSpinner" style="display:none; text-align:center; margin-bottom:0.5rem; align-items:center; justify-content:center;">
+                            <div class="progress-spinner" style="margin:0 auto;"></div>
+                            <div style="color:var(--text-secondary);margin-top:0.5rem;">Uploading...</div>
+                        </div>
+                        <div id="replaceError" style="color: var(--danger-color); display:none; margin-bottom: 1rem; text-align:center;"></div>
+                        <button type="button" class="modal-btn secondary" onclick="closeModal('replaceModal')" style="width: 100%;">Cancel</button>
+                    </div>
+                </div>
                 <input type="hidden" id="replaceFileKey">
                 <input type="hidden" id="replaceFileName">
-                <div class="form-group">
-                    <label for="newFile">Select New File</label>
-                    <input type="file" id="newFile" required class="file-input">
-                </div>
-                <div id="replacePreview" class="preview">
-                    <img id="replaceImagePreview">
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="modal-btn secondary" onclick="closeModal('replaceModal')">Cancel</button>
-                    <button type="submit" class="modal-btn primary">Replace File</button>
-                </div>
             </form>
         </div>
     </div>
@@ -816,55 +846,116 @@
             document.getElementById('replaceModal').style.display = 'flex';
             document.getElementById('newFile').value = '';
             document.getElementById('replacePreview').style.display = 'none';
+            document.getElementById('replaceError').style.display = 'none';
+            document.getElementById('replaceSpinner').style.display = 'none';
+            document.getElementById('replaceSubmitBtn').disabled = false;
+            document.getElementById('replaceCurrentName').textContent = fileName;
+            document.getElementById('replaceFileDropText').textContent = 'Click or drag file here';
+            document.getElementById('newFileNameGroup').style.display = 'none';
+            document.getElementById('renameGroup').style.display = 'none';
+            document.getElementById('replaceRenameInput').value = '';
+            document.getElementById('replaceRenameExt').textContent = '';
+            document.getElementById('replaceNewFileName').textContent = '';
         }
 
         document.getElementById('newFile').addEventListener('change', function(e) {
-            const preview = document.getElementById('replaceImagePreview');
+            const previewImg = document.getElementById('replaceImagePreview');
+            const previewVideo = document.getElementById('replaceVideoPreview');
             const previewContainer = document.getElementById('replacePreview');
             const file = e.target.files[0];
-            
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
+            const newFileNameGroup = document.getElementById('newFileNameGroup');
+            const renameGroup = document.getElementById('renameGroup');
+            const renameInput = document.getElementById('replaceRenameInput');
+            const renameExt = document.getElementById('replaceRenameExt');
+            const newFileNameSpan = document.getElementById('replaceNewFileName');
+            previewImg.style.display = 'none';
+            previewVideo.style.display = 'none';
+            if (file) {
+                const ext = file.name.split('.').pop().toLowerCase();
+                newFileNameGroup.style.display = 'block';
+                renameGroup.style.display = 'block';
+                newFileNameSpan.textContent = file.name;
+                renameInput.placeholder = file.name.substring(0, file.name.lastIndexOf('.'));
+                renameExt.textContent = '.' + ext;
+                document.getElementById('replaceFileDropText').textContent = file.name;
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImg.src = e.target.result;
+                        previewImg.style.display = 'block';
+                        previewVideo.style.display = 'none';
+                        previewContainer.style.display = 'block';
+                    }
+                    reader.readAsDataURL(file);
+                } else if (["mp4","webm","ogg","mov","avi","mkv"].includes(ext)) {
+                    previewVideo.src = URL.createObjectURL(file);
+                    previewVideo.style.display = 'block';
+                    previewImg.style.display = 'none';
                     previewContainer.style.display = 'block';
+                } else {
+                    previewContainer.style.display = 'none';
                 }
-                reader.readAsDataURL(file);
             } else {
+                newFileNameGroup.style.display = 'none';
+                renameGroup.style.display = 'none';
+                newFileNameSpan.textContent = '';
+                renameInput.value = '';
+                renameExt.textContent = '';
+                document.getElementById('replaceFileDropText').textContent = 'Click or drag file here';
                 previewContainer.style.display = 'none';
             }
         });
 
         document.getElementById('replaceForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const fileKey = document.getElementById('replaceFileKey').value;
             const file = document.getElementById('newFile').files[0];
-            
+            const errorDiv = document.getElementById('replaceError');
+            const spinner = document.getElementById('replaceSpinner');
+            const submitBtn = document.getElementById('replaceSubmitBtn');
+            const renameInput = document.getElementById('replaceRenameInput');
+            errorDiv.style.display = 'none';
+            spinner.style.display = 'flex';
+            submitBtn.disabled = true;
             if (!file) {
-                showToast('Please select a file to upload', 'error');
+                errorDiv.textContent = 'Please select a file to upload';
+                errorDiv.style.display = 'block';
+                spinner.style.display = 'none';
+                submitBtn.disabled = false;
                 return;
             }
-
+            // Determine new file key
+            let newFileKey = fileKey;
+            const folderPath = fileKey.substring(0, fileKey.lastIndexOf('/') + 1);
+            const ext = file.name.split('.').pop();
+            const newName = renameInput.value.trim();
+            if (newName) {
+                newFileKey = folderPath + newName + '.' + ext;
+            } else {
+                newFileKey = folderPath + file.name;
+            }
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('fileKey', fileKey);
-
+            formData.append('fileKey', newFileKey);
+            formData.append('oldKey', fileKey);
             try {
                 const response = await fetch('/gallery/replace', {
                     method: 'POST',
                     body: formData
                 });
-
+                spinner.style.display = 'none';
+                submitBtn.disabled = false;
                 if (!response.ok) {
                     throw new Error('Failed to replace file');
                 }
-
                 showToast('File replaced successfully', 'success');
                 closeModal('replaceModal');
                 fetchGallery();
             } catch (error) {
-                showToast(error.message, 'error');
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+                spinner.style.display = 'none';
+                submitBtn.disabled = false;
             }
         });
 
