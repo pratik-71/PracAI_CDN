@@ -423,47 +423,189 @@
         }
 
         .progress-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
             display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
             justify-content: center;
             align-items: center;
-            z-index: 2000;
-            pointer-events: all;
+            z-index: 1000;
         }
+
         .progress-modal.active {
             display: flex;
         }
-        .progress-modal-content {
-            background: var(--card-background);
-            padding: 2rem 2.5rem;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
+
+        .progress-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
             text-align: center;
-            min-width: 300px;
+            min-width: 200px;
         }
-        .progress-spinner {
-            border: 6px solid #f3f3f3;
-            border-top: 6px solid var(--primary-color);
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
             border-radius: 50%;
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 1rem auto;
             animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
-        .progress-message {
-            font-size: 1.2rem;
-            margin-bottom: 0;
-            color: var(--text-primary);
+
+        .success-checkmark {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 1rem;
+            position: relative;
+            display: none;
         }
-        body.progress-blocked {
-            overflow: hidden;
-            pointer-events: none;
-            user-select: none;
+
+        .success-checkmark.active {
+            display: block;
         }
-        .progress-modal.active {
-            pointer-events: all;
+
+        .success-checkmark .check-icon {
+            width: 40px;
+            height: 40px;
+            position: relative;
+            border-radius: 50%;
+            box-sizing: content-box;
+            border: 4px solid var(--primary-color);
+        }
+
+        .success-checkmark .check-icon::before {
+            top: 3px;
+            left: -2px;
+            width: 6px;
+            transform-origin: left top;
+            border-radius: 100px 0 0 100px;
+        }
+
+        .success-checkmark .check-icon::after {
+            top: 0;
+            left: 17px;
+            width: 20px;
+            transform-origin: left top;
+            border-radius: 0 100px 100px 0;
+            animation: rotate-circle 4.25s ease-in;
+        }
+
+        .success-checkmark .check-icon::before, .success-checkmark .check-icon::after {
+            content: '';
+            height: 100px;
+            position: absolute;
+            background: white;
+            transform: rotate(-45deg);
+        }
+
+        .success-checkmark .check-icon .icon-line {
+            height: 4px;
+            background-color: var(--primary-color);
+            display: block;
+            border-radius: 2px;
+            position: absolute;
+            z-index: 10;
+        }
+
+        .success-checkmark .check-icon .icon-line.line-tip {
+            top: 19px;
+            left: 7px;
+            width: 12px;
+            transform: rotate(45deg);
+            animation: icon-line-tip 0.75s;
+        }
+
+        .success-checkmark .check-icon .icon-line.line-long {
+            top: 15px;
+            right: 7px;
+            width: 20px;
+            transform: rotate(-45deg);
+            animation: icon-line-long 0.75s;
+        }
+
+        @keyframes icon-line-tip {
+            0% {
+                width: 0;
+                left: 1px;
+                top: 19px;
+            }
+            54% {
+                width: 0;
+                left: 1px;
+                top: 19px;
+            }
+            70% {
+                width: 50px;
+                left: -8px;
+                top: 37px;
+            }
+            84% {
+                width: 17px;
+                left: 21px;
+                top: 48px;
+            }
+            100% {
+                width: 12px;
+                left: 7px;
+                top: 19px;
+            }
+        }
+
+        @keyframes icon-line-long {
+            0% {
+                width: 0;
+                right: 46px;
+                top: 54px;
+            }
+            65% {
+                width: 0;
+                right: 46px;
+                top: 54px;
+            }
+            84% {
+                width: 55px;
+                right: 0px;
+                top: 35px;
+            }
+            100% {
+                width: 20px;
+                right: 7px;
+                top: 15px;
+            }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .upload-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .upload-btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .upload-btn:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+            transform: none;
         }
     </style>
 </head>
@@ -480,16 +622,9 @@
                     <label for="mainFolder">Main Folder:</label>
                     <select id="mainFolder" name="mainFolder" class="folder-select" required>
                         <option value="">Select a folder</option>
-                        <option value="webpage">Webpage</option>
-                        <option value="game">Game</option>
-                        <option value="new">Add New</option>
-                    </select>
-                </div>
-
-                <div class="select-group" id="subfolderGroup">
-                    <label for="subfolder">Subfolder (Optional):</label>
-                    <select id="subfolder" name="subfolder" class="folder-select">
-                        <option value="">Select a subfolder</option>
+                        <option value="webpage">📄 Webpage</option>
+                        <option value="game">🎮 Game</option>
+                        <option value="new">➕ Add New</option>
                     </select>
                 </div>
 
@@ -498,8 +633,16 @@
                     <input type="text" id="newFolder" name="newFolder" class="folder-select" placeholder="Enter folder name">
                 </div>
 
+                <div class="select-group" id="subfolderGroup" style="display: none;">
+                    <label for="subfolder">Subfolder:</label>
+                    <select id="subfolder" name="subfolder" class="folder-select">
+                        <option value="">Select a subfolder</option>
+                        <option value="new">➕ Add New</option>
+                    </select>
+                </div>
+
                 <div class="select-group" id="newSubfolderGroup" style="display: none;">
-                    <label for="newSubfolder">New Subfolder Name (Optional):</label>
+                    <label for="newSubfolder">New Subfolder Name:</label>
                     <input type="text" id="newSubfolder" name="newSubfolder" class="folder-select" placeholder="Enter subfolder name">
                 </div>
 
@@ -537,11 +680,7 @@
                     <img id="imagePreview" style="display: none;">
                 </div>
 
-                <button type="submit" class="submit-btn" id="submitBtn">
-                    Upload to S3
-                    <span class="loading-spinner">↻</span>
-                </button>
-                <div class="error-message" id="errorMessage"></div>
+                <button type="submit" class="upload-btn" id="submitBtn">Upload File</button>
             </form>
         </div>
     </div>
@@ -562,28 +701,26 @@
         </div>
     </div>
 
-    <div class="progress-modal" id="progressModal">
-        <div class="progress-modal-content">
-            <div class="progress-spinner"></div>
-            <div class="progress-message" id="progressMessage">Uploading...</div>
+    <div id="progressModal" class="progress-modal">
+        <div class="progress-content">
+            <div class="loading-spinner"></div>
+            <div class="success-checkmark">
+                <div class="check-icon">
+                    <span class="icon-line line-tip"></span>
+                    <span class="icon-line line-long"></span>
+                </div>
+            </div>
+            <p id="progressMessage">Uploading...</p>
         </div>
     </div>
+
+    <div id="toast" class="toast"></div>
 
     <script>
         // Default folders and subfolders
         const defaultFolders = {
-            webpage: [
-                { value: 'about', label: 'About' },
-                { value: 'home', label: 'Home' },
-                { value: 'auth', label: 'Auth' },
-                { value: 'misc', label: 'Misc' }
-            ],
-            game: [
-                { value: 'week1', label: 'Week 1' },
-                { value: 'week2', label: 'Week 2' },
-                { value: 'week3', label: 'Week 3' },
-                { value: 'week4', label: 'Week 4' }
-            ]
+            webpage: ['about', 'home', 'auth', 'misc'],
+            game: ['week1', 'week2', 'week3', 'week4']
         };
         let subfolders = { ...defaultFolders };
 
@@ -593,12 +730,12 @@
                 const res = await fetch('/api/folders');
                 if (!res.ok) throw new Error('Failed to fetch folders');
                 const data = await res.json();
-                // Merge with defaultFolders for label formatting
+                // Merge with defaultFolders
                 for (const main in data) {
                     if (!subfolders[main]) subfolders[main] = [];
                     data[main].forEach(sub => {
-                        if (!subfolders[main].some(f => f.value === sub)) {
-                            subfolders[main].push({ value: sub, label: sub.charAt(0).toUpperCase() + sub.slice(1) });
+                        if (!subfolders[main].includes(sub)) {
+                            subfolders[main].push(sub);
                         }
                     });
                 }
@@ -611,10 +748,9 @@
         // Update main folder dropdown
         function updateMainFolderDropdown() {
             const mainFolderSelect = document.getElementById('mainFolder');
-            // Save current value
-            const current = mainFolderSelect.value;
-            // Remove all except the first option and 'Add New'
-            mainFolderSelect.innerHTML = '<option value="">Choose a folder...</option>';
+            const currentValue = mainFolderSelect.value;
+            
+            mainFolderSelect.innerHTML = '<option value="">Select a folder</option>';
             for (const main in subfolders) {
                 const label = main.charAt(0).toUpperCase() + main.slice(1);
                 const option = document.createElement('option');
@@ -622,326 +758,199 @@
                 option.textContent = (main === 'webpage' ? '📄 ' : main === 'game' ? '🎮 ' : '📁 ') + label;
                 mainFolderSelect.appendChild(option);
             }
-            // Add New option
-            const newOpt = document.createElement('option');
-            newOpt.value = 'new';
-            newOpt.textContent = '➕ Add New Folder...';
-            mainFolderSelect.appendChild(newOpt);
-            // Restore value if possible
-            if ([...mainFolderSelect.options].some(o => o.value === current)) {
-                mainFolderSelect.value = current;
+            mainFolderSelect.appendChild(new Option('➕ Add New', 'new'));
+            
+            // Restore previous selection if possible
+            if (currentValue && [...mainFolderSelect.options].some(opt => opt.value === currentValue)) {
+                mainFolderSelect.value = currentValue;
+                updateSubfolderDropdown(currentValue);
             }
         }
 
         // Update subfolder dropdown
-        function updateSubfolderDropdown(main) {
+        function updateSubfolderDropdown(mainFolder) {
             const subfolderSelect = document.getElementById('subfolder');
-            subfolderSelect.innerHTML = '<option value="">Choose a subfolder...</option>';
-            if (subfolders[main]) {
-                subfolders[main].forEach(option => {
-                    const opt = document.createElement('option');
-                    opt.value = option.value;
-                    opt.textContent = option.label;
-                    subfolderSelect.appendChild(opt);
+            const subfolderGroup = document.getElementById('subfolderGroup');
+            
+            if (!mainFolder || mainFolder === 'new') {
+                subfolderGroup.style.display = 'none';
+                return;
+            }
+
+            subfolderGroup.style.display = 'block';
+            subfolderSelect.innerHTML = '<option value="">Select a subfolder</option>';
+            
+            if (subfolders[mainFolder]) {
+                subfolders[mainFolder].forEach(sub => {
+                    subfolderSelect.appendChild(new Option(sub.charAt(0).toUpperCase() + sub.slice(1), sub));
                 });
             }
-            // Add New option
-            const newOpt = document.createElement('option');
-            newOpt.value = 'new';
-            newOpt.textContent = '➕ Add New Subfolder...';
-            subfolderSelect.appendChild(newOpt);
+            subfolderSelect.appendChild(new Option('➕ Add New', 'new'));
         }
 
-        // On page load, fetch folders
-        window.addEventListener('DOMContentLoaded', fetchFolders);
-
+        // Event listeners for folder creation
         document.getElementById('mainFolder').addEventListener('change', function(e) {
             const newFolderGroup = document.getElementById('newFolderGroup');
             const subfolderGroup = document.getElementById('subfolderGroup');
-            const subfolderLabel = document.getElementById('subfolderLabel');
             const newSubfolderGroup = document.getElementById('newSubfolderGroup');
-            newFolderGroup.classList.add('hidden');
-            subfolderGroup.classList.add('hidden');
-            newSubfolderGroup.classList.add('hidden');
+            
             if (this.value === 'new') {
-                newFolderGroup.classList.remove('hidden');
-                return;
-            }
-            if (this.value) {
+                newFolderGroup.style.display = 'block';
+                subfolderGroup.style.display = 'none';
+                newSubfolderGroup.style.display = 'none';
+            } else if (this.value) {
+                newFolderGroup.style.display = 'none';
                 updateSubfolderDropdown(this.value);
-                subfolderLabel.textContent = `Select ${this.value === 'webpage' ? 'Webpage' : this.value === 'game' ? 'Game' : this.value.charAt(0).toUpperCase() + this.value.slice(1)} Subfolder`;
-                subfolderGroup.classList.remove('hidden');
+                newSubfolderGroup.style.display = 'none';
+            } else {
+                newFolderGroup.style.display = 'none';
+                subfolderGroup.style.display = 'none';
+                newSubfolderGroup.style.display = 'none';
             }
         });
 
         document.getElementById('subfolder').addEventListener('change', function(e) {
             const newSubfolderGroup = document.getElementById('newSubfolderGroup');
             if (this.value === 'new') {
-                newSubfolderGroup.classList.remove('hidden');
-                this.selectedIndex = 0;
+                newSubfolderGroup.style.display = 'block';
             } else {
-                newSubfolderGroup.classList.add('hidden');
+                newSubfolderGroup.style.display = 'none';
             }
         });
 
-        function addMainFolder() {
-            const newFolderInput = document.getElementById('newFolder');
-            const mainFolderSelect = document.getElementById('mainFolder');
-            const newFolderGroup = document.getElementById('newFolderGroup');
-            const folderName = newFolderInput.value.trim().toLowerCase();
-            if (!folderName) {
-                showError('Please enter a folder name');
-                return;
-            }
-            if (subfolders[folderName]) {
-                showError('This folder already exists');
-                return;
-            }
-            subfolders[folderName] = [];
-            const option = document.createElement('option');
-            option.value = folderName;
-            option.textContent = `📁 ${folderName.charAt(0).toUpperCase() + folderName.slice(1)}`;
-            mainFolderSelect.insertBefore(option, mainFolderSelect.lastElementChild);
-            mainFolderSelect.value = folderName;
-            newFolderInput.value = '';
-            newFolderGroup.classList.add('hidden');
-            mainFolderSelect.dispatchEvent(new Event('change'));
-        }
-
-        function addSubfolder() {
-            const newSubfolderInput = document.getElementById('newSubfolder');
-            const mainFolder = document.getElementById('mainFolder').value;
-            const subfolderSelect = document.getElementById('subfolder');
-            const newSubfolderGroup = document.getElementById('newSubfolderGroup');
-            const folderName = newSubfolderInput.value.trim().toLowerCase();
-            if (!folderName) {
-                showError('Please enter a subfolder name');
-                return;
-            }
-            if (subfolders[mainFolder].some(f => f.value === folderName)) {
-                showError('This subfolder already exists');
-                return;
-            }
-            subfolders[mainFolder].push({
-                value: folderName,
-                label: folderName.charAt(0).toUpperCase() + folderName.slice(1)
-            });
-            const option = document.createElement('option');
-            option.value = folderName;
-            option.textContent = folderName.charAt(0).toUpperCase() + folderName.slice(1);
-            subfolderSelect.insertBefore(option, subfolderSelect.lastElementChild);
-            subfolderSelect.value = folderName;
-            newSubfolderInput.value = '';
-            newSubfolderGroup.classList.add('hidden');
-        }
-
-        function showError(message) {
-            const errorMessage = document.getElementById('errorMessage');
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 3000);
-        }
-
-        // Add drag and drop functionality
-        const dropZone = document.querySelector('.file-input-label');
-        
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, highlight, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, unhighlight, false);
-        });
-
-        function highlight(e) {
-            dropZone.style.borderColor = 'var(--primary-color)';
-            dropZone.style.backgroundColor = 'rgba(67, 97, 238, 0.05)';
-        }
-
-        function unhighlight(e) {
-            dropZone.style.borderColor = 'var(--border-color)';
-            dropZone.style.backgroundColor = 'transparent';
-        }
-
-        dropZone.addEventListener('drop', handleDrop, false);
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            document.getElementById('fileInput').files = files;
-            handleFileSelect(files[0]);
-        }
-
-        // Add image preview functionality
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            handleFileSelect(e.target.files[0]);
-        });
-
-        function handleFileSelect(file) {
-            const preview = document.getElementById('imagePreview');
-            const previewContainer = document.getElementById('preview');
-            const fileDetails = document.getElementById('fileDetails');
-            const fileName = document.getElementById('fileName');
-            const newFileName = document.getElementById('newFileName');
-            const fileExtension = document.getElementById('fileExtension');
-            
-            if (file) {
-                // Show file details
-                fileName.textContent = file.name;
-                const extension = file.name.split('.').pop();
-                fileExtension.textContent = '.' + extension;
-                
-                // Set placeholder for new name (original name without extension)
-                const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
-                newFileName.placeholder = nameWithoutExt;
-                newFileName.value = ''; // Clear any previous value
-                
-                fileDetails.classList.remove('hidden');
-                
-                // Handle image preview if it's an image
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        preview.src = e.target.result;
-                        preview.style.display = 'block';
-                        previewContainer.style.display = 'block';
-                    }
-                    reader.readAsDataURL(file);
-                } else {
-                    preview.style.display = 'none';
-                    previewContainer.style.display = 'none';
-                }
-            } else {
-                fileDetails.classList.add('hidden');
-                preview.style.display = 'none';
-                previewContainer.style.display = 'none';
-            }
-        }
-
+        // Handle form submission
         async function handleSubmit(event) {
             event.preventDefault();
             
             const submitBtn = document.getElementById('submitBtn');
-            const spinner = document.querySelector('.loading-spinner');
-            const errorMessage = document.getElementById('errorMessage');
-            const fileInput = document.getElementById('fileInput');
-            const newFileName = document.getElementById('newFileName');
             const progressModal = document.getElementById('progressModal');
             const progressMessage = document.getElementById('progressMessage');
+            const loadingSpinner = document.querySelector('.loading-spinner');
+            const successCheckmark = document.querySelector('.success-checkmark');
             
+            // Disable submit button and show progress
             submitBtn.disabled = true;
-            spinner.style.display = 'inline-block';
-            errorMessage.style.display = 'none';
-
-            // Show progress modal and block UI
             progressModal.classList.add('active');
-            document.body.classList.add('progress-blocked');
+            loadingSpinner.style.display = 'block';
+            successCheckmark.classList.remove('active');
             progressMessage.textContent = 'Uploading...';
 
             try {
                 const mainFolder = document.getElementById('mainFolder').value;
-                const subfolder = document.getElementById('subfolder').value;
                 const newFolder = document.getElementById('newFolder').value;
+                const subfolder = document.getElementById('subfolder').value;
                 const newSubfolder = document.getElementById('newSubfolder').value;
+                const fileInput = document.getElementById('fileInput');
                 
+                if (!fileInput.files.length) {
+                    throw new Error('Please select a file to upload');
+                }
+
                 if (!mainFolder) {
-                    alert('Please select a main folder');
-                    return;
+                    throw new Error('Please select a main folder');
                 }
-                
+
                 if (mainFolder === 'new' && !newFolder) {
-                    alert('Please enter a new folder name');
-                    return;
+                    throw new Error('Please enter a new folder name');
                 }
-                
+
+                if (subfolder === 'new' && !newSubfolder) {
+                    throw new Error('Please enter a new subfolder name');
+                }
+
                 const formData = new FormData();
-                
-                if (fileInput.files.length === 0) {
-                    alert('Please select a file to upload');
-                    return;
-                }
-                
                 formData.append('file', fileInput.files[0]);
-                
+
                 // Use new folder name if "Add New" is selected
                 if (mainFolder === 'new') {
-                    formData.append('mainFolder', newFolder);
+                    formData.append('mainFolder', newFolder.toLowerCase());
                     if (newSubfolder) {
-                        formData.append('subfolder', newSubfolder);
+                        formData.append('subfolder', newSubfolder.toLowerCase());
                     }
                 } else {
                     formData.append('mainFolder', mainFolder);
-                    if (subfolder) {
+                    if (subfolder && subfolder !== 'new') {
                         formData.append('subfolder', subfolder);
                     }
                 }
 
                 // Handle file renaming
-                if (newFileName.value.trim()) {
+                const newFileName = document.getElementById('newFileName').value.trim();
+                if (newFileName) {
                     const extension = fileInput.files[0].name.split('.').pop();
-                    const newFile = new File([fileInput.files[0]], `${newFileName.value.trim()}.${extension}`, {
+                    const newFile = new File([fileInput.files[0]], `${newFileName}.${extension}`, {
                         type: fileInput.files[0].type
                     });
                     formData.set('file', newFile);
                 }
 
-                // Use XMLHttpRequest for progress
-                await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('POST', '/api/upload');
-
-                    xhr.onload = function () {
-                        let result = {};
-                        try {
-                            result = JSON.parse(xhr.responseText);
-                        } catch (err) {}
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            progressMessage.textContent = 'Upload complete!';
-                            setTimeout(() => {
-                                progressModal.classList.remove('active');
-                                document.body.classList.remove('progress-blocked');
-                                showSuccessOverlay();
-                                resolve();
-                            }, 500);
-                        } else {
-                            progressModal.classList.remove('active');
-                            document.body.classList.remove('progress-blocked');
-                            errorMessage.textContent = result.details || result.error || 'Upload failed. Please try again.';
-                            errorMessage.style.display = 'block';
-                            resolve();
-                        }
-                    };
-
-                    xhr.onerror = function () {
-                        progressModal.classList.remove('active');
-                        document.body.classList.remove('progress-blocked');
-                        errorMessage.textContent = 'Network error. Please try again.';
-                        errorMessage.style.display = 'block';
-                        resolve();
-                    };
-
-                    xhr.send(formData);
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
                 });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Upload failed');
+                }
+
+                // Show success animation
+                loadingSpinner.style.display = 'none';
+                successCheckmark.classList.add('active');
+                progressMessage.textContent = 'Upload complete!';
+                
+                // Wait for animation to complete before closing
+                setTimeout(() => {
+                    progressModal.classList.remove('active');
+                    showToast('File uploaded successfully', 'success');
+                    document.getElementById('uploadForm').reset();
+                    document.getElementById('fileDetails').classList.add('hidden');
+                    fetchFolders(); // Refresh folder list
+                }, 2000);
+
             } catch (error) {
                 progressModal.classList.remove('active');
-                document.body.classList.remove('progress-blocked');
-                errorMessage.textContent = error.message;
-                errorMessage.style.display = 'block';
+                showToast(error.message, 'error');
             } finally {
                 submitBtn.disabled = false;
-                spinner.style.display = 'none';
             }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchFolders();
+        });
+
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileDetails = document.getElementById('fileDetails');
+            const fileName = document.getElementById('fileName');
+            const fileExtension = document.getElementById('fileExtension');
+            const newFileName = document.getElementById('newFileName');
+
+            if (this.files.length) {
+                const file = this.files[0];
+                const nameParts = file.name.split('.');
+                const extension = nameParts.pop();
+                
+                fileName.textContent = file.name;
+                fileExtension.textContent = `.${extension}`;
+                newFileName.value = nameParts.join('.');
+                fileDetails.classList.remove('hidden');
+            } else {
+                fileDetails.classList.add('hidden');
+            }
+        });
+
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
         }
 
         function showSuccessOverlay() {
