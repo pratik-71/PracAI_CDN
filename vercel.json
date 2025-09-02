@@ -28,6 +28,10 @@
             "dest": "/server.js"
         },
         {
+            "src": "/api/upload/presigned",
+            "dest": "/server.js"
+        },
+        {
             "handle": "filesystem"
         },
         {

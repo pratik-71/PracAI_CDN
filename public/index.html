@@ -858,40 +858,17 @@
                     throw new Error('Please enter a new subfolder name');
                 }
 
-                const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
+                const file = fileInput.files[0];
+                const fileSize = file.size;
+                const maxSize = 50 * 1024 * 1024; // 50MB limit for direct upload
 
-                // Use new folder name if "Add New" is selected
-                if (mainFolder === 'new') {
-                    formData.append('mainFolder', newFolder.toLowerCase());
-                    if (newSubfolder) {
-                        formData.append('subfolder', newSubfolder.toLowerCase());
-                    }
+                // Determine upload method based on file size
+                if (fileSize > maxSize) {
+                    // Use presigned URL for large files
+                    await uploadLargeFile(file, mainFolder, newFolder, subfolder, newSubfolder);
                 } else {
-                    formData.append('mainFolder', mainFolder);
-                    if (subfolder && subfolder !== 'new') {
-                        formData.append('subfolder', subfolder);
-                    }
-                }
-
-                // Handle file renaming
-                const newFileName = document.getElementById('newFileName').value.trim();
-                if (newFileName) {
-                    const extension = fileInput.files[0].name.split('.').pop();
-                    const newFile = new File([fileInput.files[0]], `${newFileName}.${extension}`, {
-                        type: fileInput.files[0].type
-                    });
-                    formData.set('file', newFile);
-                }
-
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Upload failed');
+                    // Use direct upload for smaller files
+                    await uploadSmallFile(file, mainFolder, newFolder, subfolder, newSubfolder);
                 }
 
                 // Show success animation
@@ -914,6 +891,104 @@
             } finally {
                 submitBtn.disabled = false;
             }
+        }
+
+        async function uploadSmallFile(file, mainFolder, newFolder, subfolder, newSubfolder) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Use new folder name if "Add New" is selected
+            if (mainFolder === 'new') {
+                formData.append('mainFolder', newFolder.toLowerCase());
+                if (newSubfolder) {
+                    formData.append('subfolder', newSubfolder.toLowerCase());
+                }
+            } else {
+                formData.append('mainFolder', mainFolder);
+                if (subfolder && subfolder !== 'new') {
+                    formData.append('subfolder', subfolder);
+                }
+            }
+
+            // Handle file renaming
+            const newFileName = document.getElementById('newFileName').value.trim();
+            if (newFileName) {
+                const extension = file.name.split('.').pop();
+                const newFile = new File([file], `${newFileName}.${extension}`, {
+                    type: file.type
+                });
+                formData.set('file', newFile);
+            }
+
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Upload failed');
+            }
+
+            return await response.json();
+        }
+
+        async function uploadLargeFile(file, mainFolder, newFolder, subfolder, newSubfolder) {
+            // Determine final folder and file name
+            let finalMainFolder, finalSubfolder, finalFileName;
+            
+            if (mainFolder === 'new') {
+                finalMainFolder = newFolder.toLowerCase();
+                finalSubfolder = newSubfolder ? newSubfolder.toLowerCase() : null;
+            } else {
+                finalMainFolder = mainFolder;
+                finalSubfolder = (subfolder && subfolder !== 'new') ? subfolder : null;
+            }
+
+            // Handle file renaming
+            const newFileName = document.getElementById('newFileName').value.trim();
+            if (newFileName) {
+                const extension = file.name.split('.').pop();
+                finalFileName = `${newFileName}.${extension}`;
+            } else {
+                finalFileName = file.name;
+            }
+
+            // Get presigned URL
+            const presignedResponse = await fetch('/api/upload/presigned', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    fileName: finalFileName,
+                    mainFolder: finalMainFolder,
+                    subfolder: finalSubfolder,
+                    contentType: file.type
+                })
+            });
+
+            if (!presignedResponse.ok) {
+                const error = await presignedResponse.json();
+                throw new Error(error.error || 'Failed to get upload URL');
+            }
+
+            const { uploadUrl } = await presignedResponse.json();
+
+            // Upload directly to S3 using presigned URL
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': file.type
+                }
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Failed to upload file to S3');
+            }
+
+            return { success: true, message: 'Large file uploaded successfully' };
         }
 
         // Initialize on page load

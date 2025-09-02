@@ -1,4 +1,5 @@
-const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand, CopyObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand, CopyObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 require('dotenv').config();
 
 class S3Service {
@@ -179,6 +180,35 @@ class S3Service {
             return organizedFiles;
         } catch (error) {
             console.error('Error organizing files:', error);
+            throw error;
+        }
+    }
+
+    // Generate presigned URL for direct upload (bypasses serverless function limits)
+    async generatePresignedUploadUrl(fileName, folderPath, contentType) {
+        try {
+            console.log(`Generating presigned URL for ${fileName} in ${folderPath}`);
+            
+            const key = `${folderPath}${fileName}`;
+            
+            const command = new PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                ContentType: contentType
+            });
+
+            const presignedUrl = await getSignedUrl(this.s3Client, command, { 
+                expiresIn: 3600 // 1 hour
+            });
+
+            console.log(`Presigned URL generated successfully for ${key}`);
+            return {
+                uploadUrl: presignedUrl,
+                fileUrl: `https://${this.bucketName}.s3.amazonaws.com/${key}`,
+                key: key
+            };
+        } catch (error) {
+            console.error('Error generating presigned URL:', error);
             throw error;
         }
     }

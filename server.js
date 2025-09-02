@@ -79,7 +79,54 @@ app.get('/gallery', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'gallery.html'));
 });
 
-// Handle upload endpoint
+// Generate presigned URL for large file uploads
+app.post('/api/upload/presigned', async (req, res) => {
+    try {
+        const { fileName, mainFolder, subfolder, contentType } = req.body;
+
+        if (!fileName || !mainFolder) {
+            return res.status(400).json({ error: 'File name and main folder are required.' });
+        }
+
+        // Check if AWS credentials are configured
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME) {
+            console.error('AWS credentials not configured properly');
+            return res.status(500).json({ 
+                error: 'Server configuration error. Please check AWS credentials.',
+                details: 'AWS credentials are not properly configured on the server.'
+            });
+        }
+
+        // Construct folder path - make subfolder optional
+        const folderPath = subfolder ? `${mainFolder}/${subfolder}/` : `${mainFolder}/`;
+
+        try {
+            const result = await s3Service.generatePresignedUploadUrl(fileName, folderPath, contentType);
+            
+            res.json({
+                success: true,
+                uploadUrl: result.uploadUrl,
+                fileUrl: result.fileUrl,
+                key: result.key
+            });
+        } catch (s3Error) {
+            console.error('S3 Presigned URL Error:', s3Error);
+            
+            res.status(500).json({ 
+                error: 'Error generating presigned URL',
+                details: s3Error.message || 'Unknown S3 error'
+            });
+        }
+    } catch (error) {
+        console.error('Server Error:', error);
+        res.status(500).json({ 
+            error: 'Server error occurred',
+            details: error.message || 'Unknown server error'
+        });
+    }
+});
+
+// Handle upload endpoint (for smaller files)
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
