@@ -9,11 +9,6 @@ const galleryRoutes = require('./routes/galleryRoutes');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Debug logging
-console.log('Environment variables:');
-console.log('AWS_BUCKET_NAME:', process.env.AWS_BUCKET_NAME);
-console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? '****' : 'not set');
-console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? '****' : 'not set');
 
 // Configure multer for file upload
 const upload = multer({ 

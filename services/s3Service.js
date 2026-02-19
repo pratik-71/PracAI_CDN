@@ -108,7 +108,13 @@ class S3Service {
             'xls': 'application/vnd.ms-excel',
             'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'txt': 'text/plain',
-            'json': 'application/json'
+            'json': 'application/json',
+            'mp4': 'video/mp4',
+            'webm': 'video/webm',
+            'ogg': 'video/ogg',
+            'mov': 'video/quicktime',
+            'avi': 'video/x-msvideo',
+            'mkv': 'video/x-matroska'
         };
         return contentTypes[ext] || 'application/octet-stream';
     }

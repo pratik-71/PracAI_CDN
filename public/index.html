@@ -860,7 +860,7 @@
 
                 const file = fileInput.files[0];
                 const fileSize = file.size;
-                const maxSize = 50 * 1024 * 1024; // 50MB limit for direct upload
+                const maxSize = 10 * 1024 * 1024; // 10MB limit for direct upload (reduced from 50MB to fix content too large errors)
 
                 // Determine upload method based on file size
                 if (fileSize > maxSize) {

@@ -914,9 +914,11 @@
             const spinner = document.getElementById('replaceSpinner');
             const submitBtn = document.getElementById('replaceSubmitBtn');
             const renameInput = document.getElementById('replaceRenameInput');
+            
             errorDiv.style.display = 'none';
             spinner.style.display = 'flex';
             submitBtn.disabled = true;
+
             if (!file) {
                 errorDiv.textContent = 'Please select a file to upload';
                 errorDiv.style.display = 'block';
@@ -924,36 +926,81 @@
                 submitBtn.disabled = false;
                 return;
             }
-            // Determine new file key
-            let newFileKey = fileKey;
-            const folderPath = fileKey.substring(0, fileKey.lastIndexOf('/') + 1);
+
+            // Determine folders for presigned URL
+            const parts = fileKey.split('/');
+            const mainFolder = parts[0];
+            const subfolder = parts.length > 2 ? parts[1] : null;
+            const folderPath = subfolder ? `${mainFolder}/${subfolder}/` : `${mainFolder}/`;
+            
             const ext = file.name.split('.').pop();
             const newName = renameInput.value.trim();
-            if (newName) {
-                newFileKey = folderPath + newName + '.' + ext;
-            } else {
-                newFileKey = folderPath + file.name;
-            }
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('fileKey', newFileKey);
-            formData.append('oldKey', fileKey);
+            const finalFileName = newName ? `${newName}.${ext}` : file.name;
+            const newFileKey = `${folderPath}${finalFileName}`;
+
             try {
-                const response = await fetch('/gallery/replace', {
-                    method: 'POST',
-                    body: formData
-                });
-                spinner.style.display = 'none';
-                submitBtn.disabled = false;
-                if (!response.ok) {
-                    throw new Error('Failed to replace file');
+                const maxSize = 10 * 1024 * 1024; // 10MB limit for direct upload
+
+                if (file.size > maxSize) {
+                    // Use presigned URL for large file replacement
+                    const presignedResponse = await fetch('/api/upload/presigned', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileName: finalFileName,
+                            mainFolder: mainFolder,
+                            subfolder: subfolder,
+                            contentType: file.type
+                        })
+                    });
+
+                    if (!presignedResponse.ok) {
+                        const error = await presignedResponse.json();
+                        throw new Error(error.error || 'Failed to get upload URL');
+                    }
+
+                    const { uploadUrl } = await presignedResponse.json();
+
+                    // Upload directly to S3
+                    const uploadResponse = await fetch(uploadUrl, {
+                        method: 'PUT',
+                        body: file,
+                        headers: { 'Content-Type': file.type }
+                    });
+
+                    if (!uploadResponse.ok) {
+                        throw new Error('Failed to upload file to S3');
+                    }
+
+                    // If the key changed, delete the old file
+                    if (newFileKey !== fileKey) {
+                        await fetch(`/api/gallery/${fileKey}`, { method: 'DELETE' });
+                    }
+                } else {
+                    // Use direct upload for smaller files
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('fileKey', newFileKey);
+                    formData.append('oldKey', fileKey);
+
+                    const response = await fetch('/gallery/replace', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to replace file');
+                    }
                 }
+
                 showToast('File replaced successfully', 'success');
                 closeModal('replaceModal');
                 fetchGallery();
             } catch (error) {
                 errorDiv.textContent = error.message;
                 errorDiv.style.display = 'block';
+            } finally {
                 spinner.style.display = 'none';
                 submitBtn.disabled = false;
             }
